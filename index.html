@@ -1,0 +1,655 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<title>Strait of Hormuz</title>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body {
+  background: #111e2c;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 100vh;
+  font-family: 'Courier New', monospace;
+  color: #fff;
+}
+#ui {
+  display: flex;
+  gap: 36px;
+  margin-bottom: 8px;
+  font-size: 14px;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+}
+#ui b { color: #ffcc44; }
+canvas { cursor: crosshair; display: block; }
+#hint { margin-top: 7px; font-size: 11px; color: #3a5068; letter-spacing: 1px; }
+</style>
+</head>
+<body>
+
+<div id="ui">
+  Score: <b id="sc">0</b>
+  &nbsp; Lives: <b id="lv">3</b>
+  &nbsp; Level: <b id="nl">1</b>
+</div>
+<canvas id="c" width="800" height="575"></canvas>
+<div id="hint">Aim with mouse &nbsp;•&nbsp; Click or Space to fire</div>
+
+<script>
+const canvas = document.getElementById('c');
+const ctx    = canvas.getContext('2d');
+const W = 800, H = 575;
+
+// ─── Static map (pre-rendered, scaled 1.25× from original 640×460 design) ───
+const bg = document.createElement('canvas');
+bg.width = W; bg.height = H;
+(function() {
+  const g = bg.getContext('2d');
+  g.scale(1.25, 1.25); // All original 640×460 coords work unchanged below
+
+  // ── Water ────────────────────────────────────────────────────────────────
+  const pgGrad = g.createLinearGradient(0,0,300,0);
+  pgGrad.addColorStop(0, '#4499bb'); pgGrad.addColorStop(1, '#55aacf');
+  g.fillStyle = pgGrad; g.fillRect(0,0,640,460);
+  const goGrad = g.createLinearGradient(300,0,640,0);
+  goGrad.addColorStop(0,'#55aacf'); goGrad.addColorStop(1,'#4a9fc8');
+  g.fillStyle = goGrad; g.fillRect(300,0,340,460);
+
+  // ── Iran (top land mass) ────────────────────────────────────────────────
+  g.beginPath();
+  g.moveTo(0,0); g.lineTo(640,0); g.lineTo(640,188);
+  g.lineTo(620,180); g.lineTo(592,172); g.lineTo(562,166);
+  g.lineTo(530,162); g.lineTo(500,163); g.lineTo(472,167);
+  g.lineTo(448,171); g.lineTo(430,174); // ← Bandar-e-Abbas / turret
+  g.lineTo(410,176); g.lineTo(388,174); g.lineTo(362,168);
+  g.lineTo(332,162); g.lineTo(298,156); g.lineTo(262,151);
+  g.lineTo(226,149); g.lineTo(190,151); g.lineTo(156,156);
+  g.lineTo(120,160); g.lineTo(82, 162); g.lineTo(44, 162);
+  g.lineTo(8,  164); g.lineTo(0,  166);
+  g.closePath();
+  const irGrad = g.createLinearGradient(0,0,0,190);
+  irGrad.addColorStop(0,'#d8c4a4'); irGrad.addColorStop(1,'#c8ae8c');
+  g.fillStyle = irGrad; g.fill();
+  g.strokeStyle='#aa8860'; g.lineWidth=1.5; g.stroke();
+
+  // ── United Arab Emirates (bottom-left/centre) ─────────────────────────
+  g.beginPath();
+  g.moveTo(0,460); g.lineTo(0,385);
+  g.lineTo(35,377); g.lineTo(72,368); g.lineTo(110,362);
+  g.lineTo(148,358); g.lineTo(184,356); g.lineTo(218,357);
+  g.lineTo(252,360); g.lineTo(285,362); g.lineTo(314,358);
+  g.lineTo(338,349); g.lineTo(358,337); g.lineTo(373,324);
+  g.lineTo(383,311); g.lineTo(392,302); g.lineTo(399,293);
+  g.lineTo(407,305); g.lineTo(418,326); g.lineTo(430,348);
+  g.lineTo(443,368); g.lineTo(450,386); g.lineTo(453,460);
+  g.closePath();
+  const uaeGrad = g.createLinearGradient(0,460,0,290);
+  uaeGrad.addColorStop(0,'#d49068'); uaeGrad.addColorStop(1,'#e4a878');
+  g.fillStyle = uaeGrad; g.fill();
+  g.strokeStyle='#b87250'; g.lineWidth=1; g.stroke();
+
+  // ── Oman / Musandam peninsula (bottom-right) ──────────────────────────
+  g.beginPath();
+  g.moveTo(640,460); g.lineTo(453,460);
+  g.lineTo(453,386); g.lineTo(450,366);
+  g.lineTo(448,348); g.lineTo(454,328);
+  g.lineTo(464,312); g.lineTo(476,296);
+  g.lineTo(486,282); g.lineTo(495,268);
+  g.lineTo(503,256); g.lineTo(510,246);
+  g.lineTo(516,252); g.lineTo(520,262);
+  g.lineTo(525,252); g.lineTo(529,244); // peninsula tip
+  g.lineTo(535,256); g.lineTo(541,270);
+  g.lineTo(552,284); g.lineTo(566,296);
+  g.lineTo(582,308); g.lineTo(602,320);
+  g.lineTo(626,330); g.lineTo(640,338);
+  g.closePath();
+  g.fillStyle = uaeGrad; g.fill();
+  g.strokeStyle='#b87250'; g.lineWidth=1; g.stroke();
+
+  // ── Country labels ───────────────────────────────────────────────────
+  g.textAlign='center';
+
+  g.font='bold 18px Georgia'; g.fillStyle='#7a5c3c';
+  g.fillText('IRAN', 310, 88);
+
+  g.font='bold 13px Georgia'; g.fillStyle='#7a4a2c';
+  g.fillText('UNITED ARAB EMIRATES', 195, 428);
+
+  g.font='bold 12px Georgia'; g.fillStyle='#7a4a2c';
+  g.fillText('OMAN', 560, 415);
+
+  // ── Water labels ─────────────────────────────────────────────────────
+  g.font='italic 11px Georgia'; g.fillStyle='#1a6a8a';
+  g.fillText('Strait of Hormuz', 494, 210);
+
+  g.font='italic 11px Georgia'; g.fillStyle='#1a6a8a';
+  g.fillText('Persian Gulf', 82, 295);
+
+  g.font='italic 10px Georgia'; g.fillStyle='#1a6a8a';
+  g.fillText('Gulf of Oman', 596, 248);
+
+  // ── City dots ────────────────────────────────────────────────────────
+  g.fillStyle='#332';
+  g.beginPath(); g.arc(430,173,3,0,Math.PI*2); g.fill();
+  g.font='9px Arial'; g.fillStyle='#332'; g.textAlign='left';
+  g.fillText('Bandar-e-Abbas',436,169);
+
+  g.beginPath(); g.arc(148,384,2.5,0,Math.PI*2); g.fill();
+  g.fillText('Dubai',154,380);
+
+  g.beginPath(); g.arc(98,388,2,0,Math.PI*2); g.fill();
+  g.fillText('Sharjah',104,384);
+
+  // ── Sea-lane dashed arrows ───────────────────────────────────────────
+  g.save();
+  g.strokeStyle='rgba(15,80,120,0.42)'; g.fillStyle='rgba(15,80,120,0.42)';
+  g.lineWidth=1; g.setLineDash([7,5]);
+  mapArrow(g, 590,228, 148,228);  // outbound
+  mapArrow(g, 158,262, 580,262);  // inbound
+  g.setLineDash([]);
+  g.font='italic 9px Georgia'; g.fillStyle='rgba(15,80,120,0.7)';
+  g.textAlign='center'; g.fillText('Sea lanes',362,220);
+  g.restore();
+})();
+
+function mapArrow(g,x1,y1,x2,y2) {
+  g.beginPath(); g.moveTo(x1,y1); g.lineTo(x2,y2); g.stroke();
+  const a=Math.atan2(y2-y1,x2-x1);
+  g.beginPath();
+  g.moveTo(x2,y2);
+  g.lineTo(x2-10*Math.cos(a-0.45), y2-10*Math.sin(a-0.45));
+  g.lineTo(x2-10*Math.cos(a+0.45), y2-10*Math.sin(a+0.45));
+  g.closePath(); g.fill();
+}
+
+// ─── Game constants ──────────────────────────────────────────────────────────
+const T = { x:538, y:218, angle: Math.PI*0.55 }; // turret on Iranian coast
+
+let score=0, lives=3, level=1;
+let ships=[], missiles=[], sparks=[];
+let spawnTimer=2, shotCooldown=0, frameCount=0;
+let lastTime=0, state='menu';
+let keys={};
+
+// ─── Ship definitions ────────────────────────────────────────────────────────
+const DEFS = {
+  tanker:  { w:72, h:22, hp:3, baseSpd:38, pts:30 },
+  cargo:   { w:50, h:17, hp:2, baseSpd:52, pts:20 },
+  patrol:  { w:30, h:10, hp:1, baseSpd:88, pts:10 },
+};
+
+function spawnShip() {
+  const pool = level>=3 ? ['tanker','cargo','patrol','patrol'] :
+               level>=2 ? ['tanker','cargo','cargo','patrol']  :
+                          ['tanker','tanker','cargo'];
+  const type = pool[Math.floor(Math.random()*pool.length)];
+  const d    = DEFS[type];
+  const goL  = Math.random() < 0.5;
+  const lane = goL ? 275 : 300;
+  const spd  = d.baseSpd + (level-1)*12 + Math.random()*10;
+  ships.push({
+    x: goL ? W+d.w+10 : -d.w-10,
+    y: lane + (Math.random()-0.5)*18,
+    vx: goL ? -spd : spd,
+    type, w:d.w, h:d.h,
+    hp:d.hp, maxHp:d.hp, pts:d.pts,
+    bob: Math.random()*Math.PI*2
+  });
+}
+
+// ─── Ship drawing ─────────────────────────────────────────────────────────────
+function drawShip(s) {
+  const goLeft = s.vx < 0;
+  ctx.save();
+  ctx.translate(s.x, s.y);
+  if (!goLeft) ctx.scale(-1,1); // flip so bow always points right
+  if      (s.type==='tanker')  drawTanker(s.w, s.h);
+  else if (s.type==='cargo')   drawCargo(s.w, s.h);
+  else                          drawPatrol(s.w, s.h);
+  ctx.restore();
+
+  // HP bar for multi-HP ships
+  if (s.maxHp > 1) {
+    const bx=s.x-s.w/2, by=s.y-s.h/2-11;
+    ctx.fillStyle='#1a1a1a'; ctx.fillRect(bx,by,s.w,5);
+    ctx.fillStyle = s.hp/s.maxHp>0.6?'#00cc55':s.hp/s.maxHp>0.3?'#ffaa00':'#ff3300';
+    ctx.fillRect(bx,by, Math.round(s.w*(s.hp/s.maxHp)), 5);
+    ctx.strokeStyle='rgba(0,0,0,0.4)'; ctx.lineWidth=0.5;
+    ctx.strokeRect(bx,by,s.w,5);
+  }
+}
+
+function drawTanker(w, h) {
+  const hw=w/2, hh=h/2;
+
+  // Bow wave / wake
+  ctx.strokeStyle='rgba(255,255,255,0.25)'; ctx.lineWidth=2;
+  ctx.beginPath();
+  ctx.moveTo(hw,-2); ctx.lineTo(hw+22,-7);
+  ctx.moveTo(hw, 2); ctx.lineTo(hw+22, 7);
+  ctx.stroke();
+
+  // Lower hull — anti-fouling red
+  ctx.beginPath();
+  ctx.moveTo(-hw, hh);   ctx.lineTo(hw-12, hh);
+  ctx.lineTo(hw,  hh*0.3); ctx.lineTo(-hw, hh*0.3);
+  ctx.closePath();
+  ctx.fillStyle='#7a2015'; ctx.fill();
+
+  // Main hull body
+  ctx.beginPath();
+  ctx.moveTo(-hw, hh*0.3);
+  ctx.lineTo(-hw, -hh+3);   ctx.lineTo(-hw+5, -hh);
+  ctx.lineTo(hw-14, -hh);   ctx.lineTo(hw, hh*0.3);
+  ctx.closePath();
+  ctx.fillStyle='#2c3848'; ctx.fill();
+  ctx.strokeStyle='rgba(0,0,0,0.4)'; ctx.lineWidth=0.7; ctx.stroke();
+
+  // Deck level line
+  ctx.fillStyle='#3a4a5a';
+  ctx.fillRect(-hw+4,-hh, hw*1.65, 3);
+
+  // ── Cylindrical tanks on deck ──────────────────────────────────────
+  const nTanks=5, tStart=-hw*0.2, tStep=hw*0.28;
+  for(let i=0;i<nTanks;i++){
+    const tx = tStart+i*tStep;
+    // Tank body (ellipse = top view of cylinder)
+    ctx.beginPath();
+    ctx.ellipse(tx, -hh*0.3, hw*0.08, hh*0.5, 0,0,Math.PI*2);
+    ctx.fillStyle='#586878'; ctx.fill();
+    ctx.strokeStyle='#445566'; ctx.lineWidth=0.5; ctx.stroke();
+    // Highlight
+    ctx.beginPath();
+    ctx.ellipse(tx-1.5,-hh*0.42, hw*0.04, hh*0.22, 0,0,Math.PI*2);
+    ctx.fillStyle='#7a8a9a'; ctx.fill();
+    // Connecting pipe
+    if(i<nTanks-1){
+      ctx.fillStyle='#3a4a5a';
+      ctx.fillRect(tx+hw*0.07,-hh*0.32, tStep-hw*0.16, 2);
+    }
+  }
+  // Manifold riser pipe
+  ctx.fillStyle='#445566';
+  ctx.fillRect(tStart,-hh-1, tStep*(nTanks-1)+hw*0.16, 2);
+
+  // ── Bridge/accommodation block (aft = left side) ────────────────
+  ctx.fillStyle='#c8ccd8';
+  ctx.fillRect(-hw, -hh-13, hw*0.46, 13);
+  // Bridge windows row
+  ctx.fillStyle='#88aacc';
+  for(let i=0;i<4;i++) ctx.fillRect(-hw+3+i*5,-hh-11, 3,5);
+  // Navigation deck (top)
+  ctx.fillStyle='#dde0ee';
+  ctx.fillRect(-hw+2,-hh-18, hw*0.4, 5);
+  // Bridge wings
+  ctx.fillStyle='#aab0c0';
+  ctx.fillRect(-hw,-hh-18, 3,5);
+  ctx.fillRect(-hw+hw*0.4-1,-hh-18, 3,5);
+
+  // ── Funnel ──────────────────────────────────────────────────────
+  ctx.fillStyle='#1a1a24';
+  ctx.fillRect(-hw+hw*0.14,-hh-24,9,7);
+  ctx.fillStyle='#ffcc00'; // company color band
+  ctx.fillRect(-hw+hw*0.14,-hh-18,9,3);
+  // Exhaust smoke
+  if(frameCount%14<8){
+    ctx.fillStyle='rgba(80,80,80,0.3)';
+    ctx.beginPath();
+    ctx.arc(-hw+hw*0.18,-hh-28,4,0,Math.PI*2); ctx.fill();
+    ctx.arc(-hw+hw*0.16,-hh-34,3,0,Math.PI*2); ctx.fill();
+  }
+
+  // ── Bow mast ────────────────────────────────────────────────────
+  ctx.fillStyle='#8a9aaa';
+  ctx.fillRect(hw-16,-hh-10,2,10);
+  ctx.fillRect(hw-20,-hh-10,8,1.5); // cross arm
+}
+
+function drawCargo(w, h) {
+  const hw=w/2, hh=h/2;
+
+  // Wake
+  ctx.strokeStyle='rgba(255,255,255,0.22)'; ctx.lineWidth=1.5;
+  ctx.beginPath();
+  ctx.moveTo(hw,-2); ctx.lineTo(hw+18,-6);
+  ctx.moveTo(hw, 2); ctx.lineTo(hw+18, 6);
+  ctx.stroke();
+
+  // Lower hull
+  ctx.beginPath();
+  ctx.moveTo(-hw,hh); ctx.lineTo(hw-10,hh);
+  ctx.lineTo(hw,hh*0.35); ctx.lineTo(-hw,hh*0.35);
+  ctx.closePath();
+  ctx.fillStyle='#6a1a10'; ctx.fill();
+
+  // Hull
+  ctx.beginPath();
+  ctx.moveTo(-hw,hh*0.35); ctx.lineTo(-hw,-hh+2);
+  ctx.lineTo(-hw+4,-hh);   ctx.lineTo(hw-12,-hh);
+  ctx.lineTo(hw,hh*0.35);
+  ctx.closePath();
+  ctx.fillStyle='#384858'; ctx.fill();
+  ctx.strokeStyle='rgba(0,0,0,0.35)'; ctx.lineWidth=0.6; ctx.stroke();
+
+  // Cargo holds (two hatch covers on deck)
+  ctx.fillStyle='#4a5660';
+  const holdW=hw*0.38, holdH=hh*0.7;
+  ctx.fillRect(-hw*0.05,      -hh,     holdW, holdH+2);
+  ctx.fillRect(-hw*0.05+holdW+4, -hh, holdW, holdH+2);
+  // Hatch coamings (raised edge)
+  ctx.strokeStyle='#3a4650'; ctx.lineWidth=1;
+  ctx.strokeRect(-hw*0.05+1,-hh+1,holdW-2,holdH);
+  ctx.strokeRect(-hw*0.05+holdW+5,-hh+1,holdW-2,holdH);
+
+  // Derrick cranes (A-frames)
+  ctx.strokeStyle='#8a9898'; ctx.lineWidth=1.5;
+  const c1x=-hw*0.05+holdW*0.5, c2x=-hw*0.05+holdW+4+holdW*0.5;
+  ctx.beginPath();
+  ctx.moveTo(c1x-5,-hh); ctx.lineTo(c1x,-hh-14); ctx.lineTo(c1x+5,-hh);
+  ctx.stroke();
+  ctx.beginPath();
+  ctx.moveTo(c2x-5,-hh); ctx.lineTo(c2x,-hh-14); ctx.lineTo(c2x+5,-hh);
+  ctx.stroke();
+  // Crane cables
+  ctx.strokeStyle='rgba(150,160,170,0.6)'; ctx.lineWidth=0.8;
+  ctx.beginPath();
+  ctx.moveTo(c1x,-hh-14); ctx.lineTo(c1x+holdW*0.3,-hh+hh*0.5);
+  ctx.moveTo(c2x,-hh-14); ctx.lineTo(c2x+holdW*0.3,-hh+hh*0.5);
+  ctx.stroke();
+
+  // Bridge block (aft)
+  ctx.fillStyle='#c0c4d0';
+  ctx.fillRect(-hw,-hh-12,hw*0.42,12);
+  ctx.fillStyle='#88a8c0';
+  for(let i=0;i<3;i++) ctx.fillRect(-hw+3+i*5,-hh-10,3,5);
+  ctx.fillStyle='#d0d4e0';
+  ctx.fillRect(-hw+1,-hh-17,hw*0.36,5);
+
+  // Funnel
+  ctx.fillStyle='#1a1a24';
+  ctx.fillRect(-hw+hw*0.12,-hh-21,8,5);
+  ctx.fillStyle='#cc2200';
+  ctx.fillRect(-hw+hw*0.12,-hh-17,8,3);
+}
+
+function drawPatrol(w, h) {
+  const hw=w/2, hh=h/2;
+
+  // Wake
+  ctx.strokeStyle='rgba(255,255,255,0.28)'; ctx.lineWidth=1.5;
+  ctx.beginPath();
+  ctx.moveTo(hw,-1.5); ctx.lineTo(hw+15,-5);
+  ctx.moveTo(hw, 1.5); ctx.lineTo(hw+15, 5);
+  ctx.stroke();
+
+  // Sleek hull (low freeboard)
+  ctx.beginPath();
+  ctx.moveTo(-hw,hh); ctx.lineTo(hw-8,hh);
+  ctx.lineTo(hw,0);   ctx.lineTo(hw-8,-hh);
+  ctx.lineTo(-hw+2,-hh); ctx.lineTo(-hw,0);
+  ctx.closePath();
+  ctx.fillStyle='#4a5a64'; ctx.fill();
+  ctx.strokeStyle='rgba(0,0,0,0.3)'; ctx.lineWidth=0.5; ctx.stroke();
+
+  // Superstructure
+  ctx.fillStyle='#6a7a80';
+  ctx.fillRect(-hw+1,-hh-7,hw*0.65,7);
+  ctx.fillStyle='#7a8a90';
+  ctx.fillRect(-hw+3,-hh-12,hw*0.5,5);
+
+  // Mast
+  ctx.strokeStyle='#708090'; ctx.lineWidth=1;
+  const mx=-hw+hw*0.35;
+  ctx.beginPath();
+  ctx.moveTo(mx,-hh-12); ctx.lineTo(mx,-hh-24); ctx.stroke();
+  ctx.beginPath();
+  ctx.moveTo(mx-7,-hh-21); ctx.lineTo(mx+7,-hh-21); ctx.stroke(); // radar bar
+  // Radar dome
+  ctx.beginPath();
+  ctx.arc(mx,-hh-24,3,0,Math.PI*2);
+  ctx.fillStyle='#c8c8c8'; ctx.fill();
+
+  // Deck gun (forward)
+  ctx.fillStyle='#3a4a50';
+  ctx.fillRect(hw*0.15,-hh-4,10,4);
+  ctx.fillRect(hw*0.18,-hh-7,3,4);
+
+  // Hull number
+  ctx.save();
+  ctx.fillStyle='rgba(220,230,240,0.5)';
+  ctx.font='bold 6px Arial'; ctx.textAlign='center';
+  ctx.fillText('P-14', 0, hh*0.5);
+  ctx.restore();
+}
+
+// ─── Missile drawing ─────────────────────────────────────────────────────────
+function drawMissile(m) {
+  // Exhaust trail
+  for(let i=6;i>0;i--){
+    const alpha=(6-i)/6*0.55;
+    ctx.fillStyle=`rgba(255,200,50,${alpha})`;
+    ctx.fillRect(m.x-m.vx*0.014*i-1.5, m.y-m.vy*0.014*i-1.5, 4,4);
+  }
+  // Warhead
+  ctx.fillStyle='#fff';   ctx.fillRect(m.x-3,m.y-3,6,6);
+  ctx.fillStyle='#ffee00';ctx.fillRect(m.x-2,m.y-2,4,4);
+  ctx.fillStyle='#ff8800';ctx.fillRect(m.x-1,m.y-1,2,2);
+}
+
+// ─── Animated waves ───────────────────────────────────────────────────────────
+function drawWaves() {
+  ctx.save();
+  ctx.globalAlpha=0.06;
+  ctx.strokeStyle='#fff'; ctx.lineWidth=1;
+  for(let row=0;row<7;row++){
+    const y0=250+row*34;
+    ctx.beginPath();
+    for(let x=0;x<=W;x+=3){
+      const y=y0+Math.sin((x+frameCount*(row%2===0?0.65:-0.55))*0.035+row)*3;
+      x===0?ctx.moveTo(x,y):ctx.lineTo(x,y);
+    }
+    ctx.stroke();
+  }
+  ctx.restore();
+}
+
+// ─── Turret ───────────────────────────────────────────────────────────────────
+function drawTurret() {
+  const {x,y,angle}=T;
+  // Shadow
+  ctx.fillStyle='rgba(0,0,0,0.2)';
+  ctx.beginPath(); ctx.ellipse(x+3,y+5,12,6,0,0,Math.PI*2); ctx.fill();
+  // Outer base ring
+  ctx.beginPath(); ctx.arc(x,y,13,0,Math.PI*2);
+  ctx.fillStyle='#aa1800'; ctx.fill();
+  ctx.strokeStyle='#ff4422'; ctx.lineWidth=2; ctx.stroke();
+  // Barrel
+  const bx=x+Math.cos(angle)*28, by=y+Math.sin(angle)*28;
+  ctx.strokeStyle='#ff3300'; ctx.lineWidth=6;
+  ctx.beginPath(); ctx.moveTo(x,y); ctx.lineTo(bx,by); ctx.stroke();
+  ctx.strokeStyle='#ff7755'; ctx.lineWidth=2.5;
+  ctx.beginPath(); ctx.moveTo(x,y); ctx.lineTo(bx,by); ctx.stroke();
+  // Inner hub
+  ctx.beginPath(); ctx.arc(x,y,6,0,Math.PI*2);
+  ctx.fillStyle='#ff0000'; ctx.fill();
+  ctx.beginPath(); ctx.arc(x-2,y-2,2.5,0,Math.PI*2);
+  ctx.fillStyle='#ff9977'; ctx.fill();
+}
+
+// ─── Sparks ───────────────────────────────────────────────────────────────────
+function spawnSparks(x,y,col,n=10){
+  for(let i=0;i<n;i++){
+    const a=Math.random()*Math.PI*2, v=55+Math.random()*110;
+    const p={x,y,vx:Math.cos(a)*v,vy:Math.sin(a)*v,
+      life:0.4+Math.random()*0.55, col, sz:2.5+Math.random()*4};
+    p.maxLife=p.life;
+    sparks.push(p);
+  }
+}
+
+// ─── Shooting ────────────────────────────────────────────────────────────────
+function shoot(){
+  if(shotCooldown>0) return;
+  missiles.push({
+    x:T.x, y:T.y,
+    vx:Math.cos(T.angle)*480,
+    vy:Math.sin(T.angle)*480,
+    life:4
+  });
+  shotCooldown=0.25;
+  const bx=T.x+Math.cos(T.angle)*28, by=T.y+Math.sin(T.angle)*28;
+  spawnSparks(bx,by,'#ffcc00',5);
+}
+
+// ─── Update ───────────────────────────────────────────────────────────────────
+function update(dt){
+  frameCount++;
+  shotCooldown=Math.max(0,shotCooldown-dt);
+  if(keys[' ']&&shotCooldown<=0) shoot();
+
+  missiles=missiles.filter(m=>{
+    m.x+=m.vx*dt; m.y+=m.vy*dt; m.life-=dt;
+    return m.life>0&&m.x>-20&&m.x<W+20&&m.y>-20&&m.y<H+20;
+  });
+
+  spawnTimer-=dt;
+  if(spawnTimer<=0){ spawnShip(); spawnTimer=Math.max(0.7,2.8-(level-1)*0.22); }
+
+  ships=ships.filter(s=>{
+    s.x+=s.vx*dt;
+    s.y+=Math.sin(s.bob+frameCount*0.02)*0.2;
+    const gone=(s.vx<0&&s.x<-s.w-20)||(s.vx>0&&s.x>W+s.w+20);
+    if(gone){ lives--; if(lives<=0) state='over'; return false; }
+    return true;
+  });
+
+  sparks=sparks.filter(p=>{
+    p.x+=p.vx*dt; p.y+=p.vy*dt;
+    p.vy+=95*dt; p.vx*=0.97;
+    p.life-=dt; return p.life>0;
+  });
+
+  for(let mi=missiles.length-1;mi>=0;mi--){
+    const m=missiles[mi];
+    for(let si=ships.length-1;si>=0;si--){
+      const s=ships[si];
+      if(Math.abs(m.x-s.x)<s.w/2+5&&Math.abs(m.y-s.y)<s.h/2+7){
+        s.hp--;
+        missiles.splice(mi,1);
+        spawnSparks(m.x,m.y,'#ff8800',6);
+        if(s.hp<=0){
+          spawnSparks(s.x,s.y,'#ff4400',16);
+          spawnSparks(s.x,s.y,'#ffdd00',9);
+          spawnSparks(s.x,s.y,'#888',6);
+          score+=s.pts+(level-1)*5;
+          ships.splice(si,1);
+          if(score>=level*250) level++;
+        }
+        break;
+      }
+    }
+  }
+
+  document.getElementById('sc').textContent=score;
+  document.getElementById('lv').textContent=lives;
+  document.getElementById('nl').textContent=level;
+}
+
+// ─── Render ───────────────────────────────────────────────────────────────────
+function drawScene(){
+  ctx.drawImage(bg,0,0);
+  drawWaves();
+  ships.forEach(drawShip);
+  missiles.forEach(drawMissile);
+  sparks.forEach(p=>{
+    ctx.globalAlpha=p.life/p.maxLife;
+    ctx.fillStyle=p.col;
+    ctx.fillRect(p.x-p.sz/2,p.y-p.sz/2,p.sz,p.sz);
+  });
+  ctx.globalAlpha=1;
+  drawTurret();
+}
+
+function drawOverlay(title,lines,cta){
+  ctx.fillStyle='rgba(4,14,28,0.7)';
+  ctx.fillRect(0,0,W,H);
+  ctx.textAlign='center';
+
+  ctx.font='bold 28px Courier New';
+  ctx.fillStyle='#ffcc44';
+  ctx.shadowColor='#ffcc4466'; ctx.shadowBlur=20;
+  ctx.fillText(title,W/2,H/2-48);
+  ctx.shadowBlur=0;
+
+  ctx.font='13px Courier New';
+  ctx.fillStyle='#aacce0';
+  lines.forEach((l,i)=>ctx.fillText(l,W/2,H/2+i*22));
+
+  ctx.font='bold 15px Courier New';
+  ctx.fillStyle='#ffcc44';
+  ctx.fillText(cta,W/2,H/2+80);
+  ctx.textAlign='left';
+}
+
+// ─── Main loop ────────────────────────────────────────────────────────────────
+function gameLoop(ts){
+  const dt=Math.min((ts-lastTime)/1000,0.05);
+  lastTime=ts;
+
+  if(state==='playing'){
+    update(dt); drawScene();
+  } else if(state==='menu'){
+    ctx.drawImage(bg,0,0); drawTurret();
+    drawOverlay(
+      "STRAIT OF HORMUZ",
+      ["Intercept ships crossing the strait !",
+       "Lose a life if a ship gets through.",
+       "Tanker  30 pts  •  Cargo  20 pts  •  Patrol  10 pts"],
+      "[ Click or Enter to start ]"
+    );
+  } else if(state==='over'){
+    drawScene();
+    drawOverlay(
+      'MISSION FAILED',
+      [`Final score : ${score}`,`Level reached : ${level}`],
+      '[ Click or Enter to play again ]'
+    );
+  }
+
+  requestAnimationFrame(gameLoop);
+}
+
+// ─── Input ────────────────────────────────────────────────────────────────────
+canvas.addEventListener('mousemove',e=>{
+  if(state!=='playing') return;
+  const r=canvas.getBoundingClientRect();
+  T.angle=Math.atan2(
+    (e.clientY-r.top)*(H/r.height)-T.y,
+    (e.clientX-r.left)*(W/r.width)-T.x
+  );
+});
+canvas.addEventListener('click',()=>{
+  if(state==='playing') shoot(); else startGame();
+});
+document.addEventListener('keydown',e=>{
+  keys[e.key]=true;
+  if(e.key===' '){ e.preventDefault(); if(state==='playing') shoot(); }
+  if(e.key==='Enter'&&state!=='playing') startGame();
+});
+document.addEventListener('keyup',e=>{ keys[e.key]=false; });
+
+function startGame(){
+  score=0; lives=3; level=1;
+  ships=[]; missiles=[]; sparks=[];
+  spawnTimer=2; shotCooldown=0; frameCount=0;
+  T.angle=Math.PI*0.55;
+  state='playing';
+}
+
+requestAnimationFrame(ts=>{ lastTime=ts; requestAnimationFrame(gameLoop); });
+</script>
+</body>
+</html>
