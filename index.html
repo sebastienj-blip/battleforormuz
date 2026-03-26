@@ -77,115 +77,149 @@ const canvas = document.getElementById('c');
 const ctx    = canvas.getContext('2d');
 const W = 800, H = 575;
 
-// ─── Static map (pre-rendered, scaled 1.25× from original 640×460 design) ───
+// ─── Static map (pre-rendered) ───────────────────────────────────────────────
 const bg = document.createElement('canvas');
 bg.width = W; bg.height = H;
 (function() {
   const g = bg.getContext('2d');
-  g.scale(1.25, 1.25); // All original 640×460 coords work unchanged below
+  g.scale(1.25, 1.25); // 640×460 coordinate space
 
-  // ── Water ────────────────────────────────────────────────────────────────
-  const pgGrad = g.createLinearGradient(0,0,300,0);
-  pgGrad.addColorStop(0, '#4499bb'); pgGrad.addColorStop(1, '#55aacf');
-  g.fillStyle = pgGrad; g.fillRect(0,0,640,460);
-  const goGrad = g.createLinearGradient(300,0,640,0);
-  goGrad.addColorStop(0,'#55aacf'); goGrad.addColorStop(1,'#4a9fc8');
-  g.fillStyle = goGrad; g.fillRect(300,0,340,460);
+  // ── Water ─────────────────────────────────────────────────────────────────
+  const seaGrad = g.createLinearGradient(0,0,640,0);
+  seaGrad.addColorStop(0,'#3d8faa');
+  seaGrad.addColorStop(0.5,'#4a9cbf');
+  seaGrad.addColorStop(1,'#3888b8');
+  g.fillStyle = seaGrad; g.fillRect(0,0,640,460);
 
-  // ── Iran (top land mass) ────────────────────────────────────────────────
+  // ── Iran (top) ────────────────────────────────────────────────────────────
   g.beginPath();
-  g.moveTo(0,0); g.lineTo(640,0); g.lineTo(640,188);
-  g.lineTo(620,180); g.lineTo(592,172); g.lineTo(562,166);
-  g.lineTo(530,162); g.lineTo(500,163); g.lineTo(472,167);
-  g.lineTo(448,171); g.lineTo(430,174); // ← Bandar-e-Abbas / turret
-  g.lineTo(410,176); g.lineTo(388,174); g.lineTo(362,168);
-  g.lineTo(332,162); g.lineTo(298,156); g.lineTo(262,151);
-  g.lineTo(226,149); g.lineTo(190,151); g.lineTo(156,156);
-  g.lineTo(120,160); g.lineTo(82, 162); g.lineTo(44, 162);
-  g.lineTo(8,  164); g.lineTo(0,  166);
+  g.moveTo(0,0); g.lineTo(640,0); g.lineTo(640,155);
+  g.lineTo(600,140); g.lineTo(562,128); g.lineTo(528,118);
+  g.lineTo(496,111); g.lineTo(464,106);
+  g.lineTo(443,104); // ← Bandar-e-Abbas / turret
+  g.lineTo(418,106); g.lineTo(386,112);
+  g.lineTo(348,118); g.lineTo(308,124);
+  g.lineTo(264,128); g.lineTo(218,130);
+  g.lineTo(170,130); g.lineTo(122,128);
+  g.lineTo(74,126);  g.lineTo(28,124); g.lineTo(0,122);
   g.closePath();
-  const irGrad = g.createLinearGradient(0,0,0,190);
-  irGrad.addColorStop(0,'#d8c4a4'); irGrad.addColorStop(1,'#c8ae8c');
+  const irGrad = g.createLinearGradient(0,0,0,155);
+  irGrad.addColorStop(0,'#d8c8a8'); irGrad.addColorStop(1,'#c8b090');
   g.fillStyle = irGrad; g.fill();
   g.strokeStyle='#aa8860'; g.lineWidth=1.5; g.stroke();
 
-  // ── United Arab Emirates (bottom-left/centre) ─────────────────────────
+  // ── Qeshm Island (large, elongated, near Iran coast) ─────────────────────
   g.beginPath();
-  g.moveTo(0,460); g.lineTo(0,385);
-  g.lineTo(35,377); g.lineTo(72,368); g.lineTo(110,362);
-  g.lineTo(148,358); g.lineTo(184,356); g.lineTo(218,357);
-  g.lineTo(252,360); g.lineTo(285,362); g.lineTo(314,358);
-  g.lineTo(338,349); g.lineTo(358,337); g.lineTo(373,324);
-  g.lineTo(383,311); g.lineTo(392,302); g.lineTo(399,293);
-  g.lineTo(407,305); g.lineTo(418,326); g.lineTo(430,348);
-  g.lineTo(443,368); g.lineTo(450,386); g.lineTo(453,460);
-  g.closePath();
-  const uaeGrad = g.createLinearGradient(0,460,0,290);
-  uaeGrad.addColorStop(0,'#d49068'); uaeGrad.addColorStop(1,'#e4a878');
-  g.fillStyle = uaeGrad; g.fill();
-  g.strokeStyle='#b87250'; g.lineWidth=1; g.stroke();
+  g.moveTo(334,136); g.lineTo(362,130); g.lineTo(394,127);
+  g.lineTo(426,129); g.lineTo(448,136); g.lineTo(450,147);
+  g.lineTo(438,152); g.lineTo(408,154); g.lineTo(376,153);
+  g.lineTo(346,150); g.lineTo(334,143); g.closePath();
+  const islandGrad = g.createLinearGradient(0,127,0,154);
+  islandGrad.addColorStop(0,'#d0c0a0'); islandGrad.addColorStop(1,'#bfaa88');
+  g.fillStyle = islandGrad; g.fill();
+  g.strokeStyle='#aa8860'; g.lineWidth=1; g.stroke();
 
-  // ── Oman / Musandam peninsula (bottom-right) ──────────────────────────
+  // ── Hormuz Island ─────────────────────────────────────────────────────────
+  g.beginPath(); g.arc(476,142,9,0,Math.PI*2);
+  g.fillStyle='#bfaa88'; g.fill();
+  g.strokeStyle='#aa8860'; g.lineWidth=0.8; g.stroke();
+
+  // ── Larak Island ─────────────────────────────────────────────────────────
+  g.beginPath(); g.arc(508,128,5,0,Math.PI*2);
+  g.fillStyle='#bfaa88'; g.fill();
+  g.strokeStyle='#aa8860'; g.lineWidth=0.7; g.stroke();
+
+  // ── UAE (bottom-left) ─────────────────────────────────────────────────────
   g.beginPath();
-  g.moveTo(640,460); g.lineTo(453,460);
-  g.lineTo(453,386); g.lineTo(450,366);
-  g.lineTo(448,348); g.lineTo(454,328);
-  g.lineTo(464,312); g.lineTo(476,296);
-  g.lineTo(486,282); g.lineTo(495,268);
-  g.lineTo(503,256); g.lineTo(510,246);
-  g.lineTo(516,252); g.lineTo(520,262);
-  g.lineTo(525,252); g.lineTo(529,244); // peninsula tip
-  g.lineTo(535,256); g.lineTo(541,270);
-  g.lineTo(552,284); g.lineTo(566,296);
-  g.lineTo(582,308); g.lineTo(602,320);
-  g.lineTo(626,330); g.lineTo(640,338);
+  g.moveTo(0,460); g.lineTo(0,308);
+  g.lineTo(40,296); g.lineTo(82,284); g.lineTo(124,274);
+  g.lineTo(164,267); g.lineTo(202,264); g.lineTo(238,264);
+  g.lineTo(268,268); g.lineTo(294,276); g.lineTo(314,288);
+  g.lineTo(325,302); g.lineTo(330,320); g.lineTo(332,345);
+  g.lineTo(334,378); g.lineTo(336,412); g.lineTo(338,460);
   g.closePath();
+  const uaeGrad = g.createLinearGradient(0,460,0,264);
+  uaeGrad.addColorStop(0,'#d09060'); uaeGrad.addColorStop(1,'#e0b07a');
   g.fillStyle = uaeGrad; g.fill();
-  g.strokeStyle='#b87250'; g.lineWidth=1; g.stroke();
+  g.strokeStyle='#b07040'; g.lineWidth=1.2; g.stroke();
 
-  // ── Country labels ───────────────────────────────────────────────────
+  // ── Musandam Peninsula + Oman ─────────────────────────────────────────────
+  // Musandam is an Oman exclave jutting NORTH into the strait — key feature
+  g.beginPath();
+  g.moveTo(640,460); g.lineTo(528,460);
+  // West coast going north toward the peninsula tip
+  g.lineTo(524,436); g.lineTo(518,410); g.lineTo(512,382);
+  g.lineTo(505,354); g.lineTo(498,328); g.lineTo(490,302);
+  g.lineTo(483,278); g.lineTo(476,254); g.lineTo(469,232);
+  g.lineTo(463,212); g.lineTo(459,196); g.lineTo(458,188);
+  // Peninsula tip (northernmost — Khasab area)
+  g.lineTo(468,182); g.lineTo(480,180); g.lineTo(492,186); g.lineTo(498,200);
+  // East coast going south toward Gulf of Oman
+  g.lineTo(506,220); g.lineTo(514,242); g.lineTo(524,266);
+  g.lineTo(536,292); g.lineTo(550,317); g.lineTo(566,340);
+  g.lineTo(584,360); g.lineTo(603,377); g.lineTo(622,390);
+  g.lineTo(640,400); g.lineTo(640,460);
+  g.closePath();
+  const omanGrad = g.createLinearGradient(0,460,0,180);
+  omanGrad.addColorStop(0,'#c88050'); omanGrad.addColorStop(1,'#dda870');
+  g.fillStyle = omanGrad; g.fill();
+  g.strokeStyle='#b07040'; g.lineWidth=1.2; g.stroke();
+
+  // ── Country labels ────────────────────────────────────────────────────────
   g.textAlign='center';
-
-  g.font='bold 18px Georgia'; g.fillStyle='#7a5c3c';
-  g.fillText('IRAN', 310, 88);
-
-  g.font='bold 13px Georgia'; g.fillStyle='#7a4a2c';
-  g.fillText('UNITED ARAB EMIRATES', 195, 428);
+  g.font='bold 16px Georgia'; g.fillStyle='#7a5c3c';
+  g.fillText('IRAN', 260, 70);
 
   g.font='bold 12px Georgia'; g.fillStyle='#7a4a2c';
-  g.fillText('OMAN', 560, 415);
+  g.fillText('UNITED ARAB EMIRATES', 155, 418);
 
-  // ── Water labels ─────────────────────────────────────────────────────
-  g.font='italic 11px Georgia'; g.fillStyle='#1a6a8a';
-  g.fillText('Strait of Hormuz', 494, 210);
+  g.font='bold 11px Georgia'; g.fillStyle='#7a4a2c';
+  g.fillText('OMAN', 590, 432);
 
-  g.font='italic 11px Georgia'; g.fillStyle='#1a6a8a';
-  g.fillText('Persian Gulf', 82, 295);
+  g.font='bold 9px Georgia'; g.fillStyle='#6a4020';
+  g.fillText('Musandam', 480, 316);
+  g.fillText('Peninsula', 480, 328);
 
-  g.font='italic 10px Georgia'; g.fillStyle='#1a6a8a';
-  g.fillText('Gulf of Oman', 596, 248);
+  // ── Water labels ──────────────────────────────────────────────────────────
+  g.font='italic 14px Georgia'; g.fillStyle='rgba(10,70,110,0.7)';
+  g.fillText('Strait of Hormuz', 380, 172);
 
-  // ── City dots ────────────────────────────────────────────────────────
-  g.fillStyle='#332';
-  g.beginPath(); g.arc(430,173,3,0,Math.PI*2); g.fill();
-  g.font='9px Arial'; g.fillStyle='#332'; g.textAlign='left';
-  g.fillText('Bandar-e-Abbas',436,169);
+  g.font='italic 11px Georgia'; g.fillStyle='rgba(10,70,110,0.55)';
+  g.fillText('Persian Gulf', 120, 238);
 
-  g.beginPath(); g.arc(148,384,2.5,0,Math.PI*2); g.fill();
-  g.fillText('Dubai',154,380);
+  g.font='italic 10px Georgia'; g.fillStyle='rgba(10,70,110,0.55)';
+  g.fillText('Gulf of Oman', 588, 268);
 
-  g.beginPath(); g.arc(98,388,2,0,Math.PI*2); g.fill();
-  g.fillText('Sharjah',104,384);
+  // ── Island labels ─────────────────────────────────────────────────────────
+  g.font='italic 8px Georgia'; g.fillStyle='#665544'; g.textAlign='center';
+  g.fillText('Qeshm', 392, 166);
+  g.fillText('Hormuz', 476, 157);
 
-  // ── Sea-lane dashed arrows ───────────────────────────────────────────
+  // ── City dots ─────────────────────────────────────────────────────────────
+  g.fillStyle='#221100';
+  g.beginPath(); g.arc(443,104,3,0,Math.PI*2); g.fill();
+  g.font='9px Arial'; g.fillStyle='#221100'; g.textAlign='left';
+  g.fillText('Bandar-e-Abbas', 449, 101);
+
+  g.beginPath(); g.arc(164,267,2.5,0,Math.PI*2); g.fill();
+  g.fillText('Dubai', 170, 265);
+
+  g.beginPath(); g.arc(112,272,2,0,Math.PI*2); g.fill();
+  g.fillText('Sharjah', 118, 270);
+
+  g.beginPath(); g.arc(480,180,2.5,0,Math.PI*2); g.fill();
+  g.fillText('Khasab', 487, 178);
+
+  // ── Sea-lane dashed arrows ────────────────────────────────────────────────
   g.save();
-  g.strokeStyle='rgba(15,80,120,0.42)'; g.fillStyle='rgba(15,80,120,0.42)';
-  g.lineWidth=1; g.setLineDash([7,5]);
-  mapArrow(g, 590,228, 148,228);  // outbound
-  mapArrow(g, 158,262, 580,262);  // inbound
+  g.strokeStyle='rgba(10,70,120,0.40)'; g.fillStyle='rgba(10,70,120,0.40)';
+  g.lineWidth=1.2; g.setLineDash([8,5]);
+  mapArrow(g, 565,175, 62,184); // outbound westward
+  mapArrow(g, 62,164, 565,164); // inbound eastward
   g.setLineDash([]);
-  g.font='italic 9px Georgia'; g.fillStyle='rgba(15,80,120,0.7)';
-  g.textAlign='center'; g.fillText('Sea lanes',362,220);
+  g.font='italic 9px Georgia'; g.fillStyle='rgba(10,70,120,0.65)';
+  g.textAlign='center';
+  g.fillText('shipping lanes', 320, 156);
   g.restore();
 })();
 
@@ -200,7 +234,7 @@ function mapArrow(g,x1,y1,x2,y2) {
 }
 
 // ─── Game constants ──────────────────────────────────────────────────────────
-const T = { x:538, y:218, angle: Math.PI*0.55 }; // turret on Iranian coast
+const T = { x:554, y:130, angle: Math.PI*0.65 }; // turret on Iranian coast (Bandar-e-Abbas)
 
 let score=0, lives=3, level=1;
 let ships=[], missiles=[], sparks=[];
@@ -222,11 +256,11 @@ function spawnShip() {
   const type = pool[Math.floor(Math.random()*pool.length)];
   const d    = DEFS[type];
   const goL  = Math.random() < 0.5;
-  const lane = goL ? 275 : 300;
+  const lane = goL ? 214 : 228;
   const spd  = d.baseSpd + (level-1)*12 + Math.random()*10;
   ships.push({
     x: goL ? W+d.w+10 : -d.w-10,
-    y: lane + (Math.random()-0.5)*18,
+    y: lane + (Math.random()-0.5)*8,
     vx: goL ? -spd : spd,
     type, w:d.w, h:d.h,
     hp:d.hp, maxHp:d.hp, pts:d.pts,
